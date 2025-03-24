@@ -2,6 +2,15 @@ name: 下载JM本子 (commit)
 
 on:
   workflow_dispatch:
+    inputs:
+      album_id:
+        description: '本子ID'
+        required: true
+        type: string
+      task_id:
+        description: '任务ID'
+        required: true
+        type: string
   push:
     paths:
       - '.github/workflows/download.yml' # 工作流定义
@@ -68,3 +77,26 @@ jobs:
           path: ${{ env.JM_DOWNLOAD_DIR }}/${{ env.ZIP_NAME }}
           if-no-files-found: warn
           retention-days: 90
+
+      - name: 通知 Worker
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          # 创建下载结果文件
+          cat > download_result.json << EOF
+          {
+            "task_id": "${{ inputs.task_id }}",
+            "status": "completed",
+            "album_info": {
+              "id": "${{ inputs.album_id }}",
+              "name": "下载完成",
+              "author": "JMComic",
+              "page_count": 0
+            }
+          }
+          EOF
+          
+          # 发送回调请求
+          curl -X POST ${{ secrets.WORKER_URL }}/api/callback \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.WORKER_TOKEN }}" \
+            -d @download_result.json
